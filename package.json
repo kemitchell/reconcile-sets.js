@@ -1,0 +1,22 @@
+{
+  "name": "reconcile-sets",
+  "version": "0.0.0",
+  "description": "reconcile sets with invertible bloom filters",
+  "author": "Kyle E. Mitchell <kyle@kemitchell.com> (https://kemitchell.com/)",
+  "repository": "kemitchell/reconcile-sets.js",
+  "files": [
+    "index.js"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "flush-write-stream": "^1.0.2",
+    "ibf": "^4.0.1",
+    "pump": "^1.0.1",
+    "strata-estimator": "^1.0.3",
+    "xtend": "^4.0.1"
+  },
+  "devDependencies": {
+    "standard": "^8.4.0",
+    "tape": "^4.6.2"
+  }
+}
