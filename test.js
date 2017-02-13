@@ -1,15 +1,16 @@
 var assert = require('assert')
 var crypto = require('crypto')
-var fromArray = require('from2-array')
+var from = require('from2')
 var reconcile = require('./')
+var through = require('through2')
 
 var responder = reconcile.responder(function () {
-  return fromArray(stringsToKeys(['a', 'b', 'c', 'd', 'e']))
+  return streamOfKeys(['a', 'b', 'c', 'd', 'e'])
 })
 
 var requester = reconcile.requester(
   function () {
-    return fromArray(stringsToKeys(['f', 'g']))
+    return streamOfKeys(['f', 'g'])
   },
   function (error, decoded) {
     assert.ifError(error)
@@ -18,14 +19,28 @@ var requester = reconcile.requester(
 )
 
 requester
+  .pipe(through(function (chunk, _, done) {
+    console.log(chunk.length)
+    if (chunk.length < 3000) {
+      // console.log(chunk.toString('utf8'))
+    }
+    done(null, chunk)
+  }))
   .pipe(responder)
   .pipe(requester)
 
-function stringsToKeys (strings) {
-  return strings.map(function (string) {
-    crypto.createHash('sha256')
+function streamOfKeys (array) {
+  var keyBuffers = array.map(function (string) {
+    return crypto.createHash('sha256')
       .update(string)
       .digest()
       .buffer
+  })
+  return from.obj(function (size, done) {
+    if (keyBuffers.length <= 0) {
+      done(null, null)
+    } else {
+      done(null, keyBuffers.shift())
+    }
   })
 }

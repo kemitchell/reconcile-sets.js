@@ -16,11 +16,13 @@ module.exports = {
     return rpc({
       reconcile: rpc.syncStream(function () {
         return pumpify(
-          chunksToArrayOfBuffers(),
+          chunksToArrayOfNodeBuffers(),
           through.obj(function (chunks, _, done) {
             var self = this
-            var buffer = Buffer.concat(chunks).buffer
-            var theirEstimator = new Estimator(estimatorOptions(buffer))
+            var arrayBuffer = Buffer.concat(chunks).buffer
+            var theirEstimator = new Estimator(
+              estimatorOptions(arrayBuffer)
+            )
             makeEstimator(streamKeys, function (error, ourEstimator) {
               if (error) return done(error)
               var estimatedDifference = Math.max(
@@ -53,28 +55,28 @@ module.exports = {
     client.on('methods', function (remote) {
       makeEstimator(streamKeys, function (error, estimator) {
         if (error) return onDecoded(error)
-        var filterBuffers = estimator._strata.map(function (filter) {
+        var arrayBuffers = estimator._strata.map(function (filter) {
           return filter.arrayBuffer
         })
         var estimatorStream = from(function (size, next) {
-          if (filterBuffers.length === 0) {
+          if (arrayBuffers.length === 0) {
             next(null, null)
           } else {
-            next(null, new Buffer(filterBuffers.shift()))
+            next(null, new Buffer(arrayBuffers.shift()))
           }
         })
         var reconcile = remote.reconcile()
         var asNodeBuffer = {encoding: 'buffer'}
-        var decode = concat(asNodeBuffer, function (nodeBuffer) {
+        var decodeFilter = concat(asNodeBuffer, function (nodeBuffer) {
           var cellCount = varint.decode(nodeBuffer)
           var headerBytes = varint.decode.bytes
           // TODO Avoid copying the whole buffer.
-          var filterBuffer = nodeBuffer.buffer.slice(
+          var bodyArrayBuffer = nodeBuffer.buffer.slice(
             headerBytes,
             nodeBuffer.length
           )
           var theirFilter = new IBF(
-            filterOptions(cellCount, filterBuffer)
+            filterOptions(cellCount, bodyArrayBuffer)
           )
           makeFilter(
             streamKeys, cellCount,
@@ -92,14 +94,14 @@ module.exports = {
         })
         estimatorStream
           .pipe(reconcile)
-          .pipe(decode)
+          .pipe(decodeFilter)
       })
     })
     return client
   }
 }
 
-function chunksToArrayOfBuffers () {
+function chunksToArrayOfNodeBuffers () {
   var chunks = []
   return through(
     {
@@ -117,36 +119,25 @@ function chunksToArrayOfBuffers () {
 }
 
 function makeEstimator (streamKeys, callback) {
-  var estimator = new Estimator(estimatorOptions())
-  pump(
-    streamKeys(),
-    flushWriteStream(function (key, _, done) {
-      estimator.insert(key)
-      done()
-    }),
-    function (error) {
-      if (error) {
-        callback(error)
-      } else {
-        callback(null, estimator)
-      }
-    }
-  )
+  insertInto(streamKeys(), new Estimator(estimatorOptions()), callback)
 }
 
 function makeFilter (streamKeys, cellCount, callback) {
-  var filter = new IBF(filterOptions(cellCount))
+  insertInto(streamKeys(), new IBF(filterOptions(cellCount)), callback)
+}
+
+function insertInto (stream, object, callback) {
   pump(
-    streamKeys(),
-    flushWriteStream(function (key, _, done) {
-      filter.insert(key)
+    stream,
+    flushWriteStream.obj(function (key, _, done) {
+      object.insert(key)
       done()
     }),
     function (error) {
       if (error) {
         callback(error)
       } else {
-        callback(null, filter)
+        callback(null, object)
       }
     }
   )
@@ -156,7 +147,7 @@ var seeds = [0x0000, 0x9999, 0xFFFF]
 var estimatorCellCount = 80
 var estimatorStrataCount = 32
 
-function estimatorOptions (buffer) {
+function estimatorOptions (arrayBuffer) {
   var returned = {
     hash: function (input) {
       return xxh(input, 0xAAAA)
@@ -164,14 +155,17 @@ function estimatorOptions (buffer) {
     strataCount: estimatorStrataCount,
     filters: filterOptions(estimatorCellCount)
   }
-  if (buffer) {
+  if (arrayBuffer) {
     var strata = []
-    var filterSize = buffer.byteLength / estimatorStrataCount
+    var totalLength = arrayBuffer.byteLength
+    console.log('%s is %j', 'totalLength', totalLength)
+    var filterSize = totalLength / estimatorStrataCount
+    console.log('%s is %j', 'filterSize', filterSize)
     var offset
-    for (offset = 0; offset < buffer.byteLength; offset += filterSize) {
+    for (offset = 0; offset < totalLength; offset += filterSize) {
       strata.push(new IBF(filterOptions(
         estimatorCellCount,
-        buffer.slice(offset, offset + filterSize)
+        arrayBuffer.slice(offset, offset + filterSize)
       )))
     }
     returned.strata = strata
