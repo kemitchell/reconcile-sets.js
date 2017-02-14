@@ -21,5 +21,8 @@
   },
   "scripts": {
     "test": "node test.js"
+  },
+  "devDependencies": {
+    "from2-array": "0.0.4"
   }
 }

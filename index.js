@@ -1,12 +1,13 @@
 var Estimator = require('strata-estimator')
 var IBF = require('ibf')
 var concat = require('concat-stream')
+var estimatorOptions = require('./estimator-options')
+var filterOptions = require('./filter-options')
 var flushWriteStream = require('flush-write-stream')
 var from = require('from2')
 var pump = require('pump')
 var through = require('through2')
 var varint = require('varint')
-var xxh = require('xxhashjs').h32
 
 module.exports = {
 
@@ -32,10 +33,7 @@ module.exports = {
           // since approximately 1.5d cells are required to
           // successfully decode the IBF."
           // --- Eppstein et al, section 3.2.
-          var cellCount = Math.max(
-            Math.ceil(1.5 * estimatedDifference),
-            8
-          )
+          var cellCount = Math.ceil(1.5 * estimatedDifference)
           makeFilter(
             createKeyStream, cellCount,
             function (error, filter) {
@@ -46,9 +44,6 @@ module.exports = {
             }
           )
         })
-      }))
-      .pipe(through(function (chunk, enc, done) {
-        done(null, chunk, enc)
       }))
       .pipe(connection)
   },
@@ -79,10 +74,11 @@ module.exports = {
           var cellCount = varint.decode(nodeBuffer)
           var headerBytes = varint.decode.bytes
           // TODO Avoid copying the whole buffer.
-          var bodyArrayBuffer = nodeBuffer.buffer.slice(
-            headerBytes,
-            nodeBuffer.length
+          var bodyArrayBuffer = new ArrayBuffer(
+            nodeBuffer.length - headerBytes
           )
+          new Uint8Array(bodyArrayBuffer)
+            .set(nodeBuffer.slice(headerBytes))
           var theirFilter = new IBF(
             filterOptions(cellCount, bodyArrayBuffer)
           )
@@ -90,8 +86,8 @@ module.exports = {
             createKeyStream, cellCount,
             function (error, ourFilter) {
               if (error) return callback(error)
-              theirFilter.subtract(ourFilter)
-              var result = theirFilter.decode()
+              ourFilter.subtract(theirFilter)
+              var result = ourFilter.decode()
               if (result === false) {
                 callback(new Error('Could not decode IBF.'))
               } else {
@@ -147,56 +143,4 @@ function insertInto (stream, object, callback) {
   )
 }
 
-var seeds = [0x0000, 0x9999, 0xFFFF]
-var estimatorCellCount = 80
-var estimatorStrataCount = 32
 
-function estimatorOptions (arrayBuffer) {
-  var returned = {
-    hash: function (input) {
-      return xxh(input, 0xAAAA)
-    },
-    strataCount: estimatorStrataCount,
-    filters: filterOptions(estimatorCellCount)
-  }
-  if (arrayBuffer) {
-    var strata = []
-    var totalLength = arrayBuffer.byteLength
-    var filterSize = totalLength / estimatorStrataCount
-    var offset
-    for (offset = 0; offset < totalLength; offset += filterSize) {
-      strata.push(new IBF(filterOptions(
-        estimatorCellCount,
-        arrayBuffer.slice(offset, offset + filterSize)
-      )))
-    }
-    returned.strata = strata
-  }
-  return returned
-}
-
-function filterOptions (cellCount, arrayBuffer) {
-  var returned = {
-    cellCount: cellCount,
-    keyHashes: seeds.map(function (seed) {
-      return function (id) {
-        return xxh(id, seed) % cellCount
-      }
-    }),
-    checkHash: function binaryXXH (idBuffer) {
-      var digest = xxh(idBuffer, 0x1234)
-      var digestBuffer = new ArrayBuffer(4)
-      new Uint32Array(digestBuffer)[0] = digest
-      return digestBuffer
-    },
-    countView: Int32Array,
-    idSumElements: 8,
-    idSumView: Uint32Array,
-    hashSumElements: 1,
-    hashSumView: Uint32Array
-  }
-  if (arrayBuffer) {
-    returned.arrayBuffer = arrayBuffer
-  }
-  return returned
-}
