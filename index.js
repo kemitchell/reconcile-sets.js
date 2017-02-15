@@ -1,13 +1,12 @@
 var Estimator = require('strata-estimator')
 var IBF = require('ibf')
 var concat = require('concat-stream')
-var estimatorOptions = require('./estimator-options')
-var filterOptions = require('./filter-options')
 var flushWriteStream = require('flush-write-stream')
 var from = require('from2')
 var pump = require('pump')
 var through = require('through2')
 var varint = require('varint')
+var xxh = require('xxhashjs').h32
 
 var MINIMUM_FILTER_CELLS = 16
 
@@ -149,4 +148,54 @@ function insertInto (stream, object, callback) {
   )
 }
 
+var estimatorCellCount = 80
+var estimatorStrataCount = 32
 
+function estimatorOptions (arrayBuffer) {
+  var returned = {
+    hash: function (input) {
+      return xxh(input, 0xAAAA)
+    },
+    strataCount: estimatorStrataCount,
+    filters: filterOptions(estimatorCellCount)
+  }
+  if (arrayBuffer) {
+    var strata = []
+    var totalLength = arrayBuffer.byteLength
+    var filterSize = totalLength / estimatorStrataCount
+    var offset
+    for (offset = 0; offset < totalLength; offset += filterSize) {
+      strata.push(new IBF(filterOptions(
+        estimatorCellCount,
+        arrayBuffer.slice(offset, offset + filterSize)
+      )))
+    }
+    returned.strata = strata
+  }
+  return returned
+}
+
+var seeds = [0x0000, 0xAAAA, 0xFFFF]
+
+function filterOptions (cellCount, arrayBuffer) {
+  var returned = {
+    cellCount: cellCount,
+    keyHashes: seeds.map(function (seed) {
+      return function (id) {
+        return xxh(id, seed) % cellCount
+      }
+    }),
+    checkHash: function binaryXXH (idBuffer) {
+      var digest = xxh(idBuffer, 0x1234)
+      var digestBuffer = new ArrayBuffer(4)
+      new Uint32Array(digestBuffer)[0] = digest
+      return digestBuffer
+    },
+    idSumOctets: 32,
+    hashSumOctets: 4
+  }
+  if (arrayBuffer) {
+    returned.arrayBuffer = arrayBuffer
+  }
+  return returned
+}

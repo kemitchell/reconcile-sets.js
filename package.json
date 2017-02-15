@@ -20,9 +20,7 @@
     "standard-markdown": "^2.3.0"
   },
   "files": [
-    "index.js",
-    "filter-options.js",
-    "estimator-options.js"
+    "index.js"
   ],
   "license": "MIT",
   "repository": "kemitchell/reconcile-sets.js",
