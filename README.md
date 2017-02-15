@@ -3,7 +3,7 @@ Invertible Bloom Filter-based set reconciliation as described by Eppstein et al.
 
 [1]: https://www.ics.uci.edu/~eppstein/pubs/EppGooUye-SIGCOMM-11.pdf
 
-Implemented over duplex Node.js streams.  [standard][2] style.
+Implemented over duplex Node.js streams.  [JavaScript Standard Style][2].
 
 [2]: https://www.npmjs.com/package/standard
 
