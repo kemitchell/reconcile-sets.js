@@ -22,9 +22,12 @@
     "xxhashjs": "^0.2.1"
   },
   "scripts": {
-    "test": "node test.js"
+    "test": "node test.js",
+    "lint": "standard && standard-markdown"
   },
   "devDependencies": {
-    "from2-array": "0.0.4"
+    "from2-array": "0.0.4",
+    "standard": "^8.6.0",
+    "standard-markdown": "^2.3.0"
   }
 }
