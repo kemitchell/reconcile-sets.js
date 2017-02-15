@@ -1,8 +1,20 @@
+Invertible Bloom Filter-based set reconciliation as described by Eppstein et al. in
+[_What's the Difference? Efficient Set Reconciliation without Prior Context_][1].
+
+[1]: https://www.ics.uci.edu/~eppstein/pubs/EppGooUye-SIGCOMM-11.pdf
+
+Implemented over duplex Node.js streams.  [standard][2] style.
+
+[2]: https://www.npmjs.com/package/standard
+
+The example in this `README` is run as the package's test suite.
+
+```javascript
 var assert = require('assert')
 var crypto = require('crypto')
 var fromArray = require('from2-array')
-var net = require('net')
-var reconcile = require('./')
+var net = require('net') // Over TCP
+var reconcile = require('reconcile-sets')
 
 // Create a small data set.
 var keys = [
@@ -87,3 +99,4 @@ function digest (string) {
     .update(string)
     .digest()
 }
+```

@@ -15,7 +15,9 @@
     "xxhashjs": "^0.2.1"
   },
   "devDependencies": {
+    "defence-cli": "^2.0.1",
     "from2-array": "0.0.4",
+    "replace-require-self": "^1.1.1",
     "standard": "^8.6.0",
     "standard-markdown": "^2.3.0"
   },
@@ -26,6 +28,6 @@
   "repository": "kemitchell/reconcile-sets.js",
   "scripts": {
     "lint": "standard && standard-markdown",
-    "test": "node test.js"
+    "test": "defence -i javascript README.md | replace-require-self | node"
   }
 }
