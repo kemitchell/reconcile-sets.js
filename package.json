@@ -12,9 +12,9 @@
     "concat-stream": "^1.6.0",
     "flush-write-stream": "^1.0.2",
     "from2": "^2.3.0",
-    "ibf": "^4.0.0",
+    "ibf": "^5.0.0",
     "pump": "^1.0.2",
-    "strata-estimator": "^1.0.4",
+    "strata-estimator": "^2.0.0",
     "through2": "^2.0.3",
     "varint": "^5.0.0",
     "xxhashjs": "^0.2.1"

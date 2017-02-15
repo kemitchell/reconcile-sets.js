@@ -9,6 +9,8 @@ var pump = require('pump')
 var through = require('through2')
 var varint = require('varint')
 
+var MINIMUM_FILTER_CELLS = 16
+
 module.exports = {
 
   respond: function (createKeyStream, connection) {
@@ -33,7 +35,10 @@ module.exports = {
           // since approximately 1.5d cells are required to
           // successfully decode the IBF."
           // --- Eppstein et al, section 3.2.
-          var cellCount = Math.ceil(1.5 * estimatedDifference)
+          var cellCount = Math.max(
+            Math.ceil(1.5 * estimatedDifference),
+            MINIMUM_FILTER_CELLS
+          )
           makeFilter(
             createKeyStream, cellCount,
             function (error, filter) {
@@ -86,8 +91,9 @@ module.exports = {
             createKeyStream, cellCount,
             function (error, ourFilter) {
               if (error) return callback(error)
-              ourFilter.subtract(theirFilter)
-              var result = ourFilter.decode()
+              var difference = ourFilter.clone()
+              difference.subtract(theirFilter)
+              var result = difference.decode()
               if (result === false) {
                 callback(new Error('Could not decode IBF.'))
               } else {
